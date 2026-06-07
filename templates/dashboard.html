@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Expense Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1 class="h3 mb-4">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </h1>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card border-left-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted small mb-1">This Month</p>
+                            <h4 class="mb-0">${{ "%.2f"|format(total_month) }}</h4>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-calendar-month"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stat-card border-left-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted small mb-1">Total Expenses</p>
+                            <h4 class="mb-0">${{ "%.2f"|format(total_all) }}</h4>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stat-card border-left-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted small mb-1">Average</p>
+                            <h4 class="mb-0">${{ "%.2f"|format(avg_all) }}</h4>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-bar-chart"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stat-card border-left-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted small mb-1">Highest</p>
+                            <h4 class="mb-0">${{ "%.2f"|format(max_all) }}</h4>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-exclamation-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-pie-chart"></i> Expenses by Category
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-line-chart"></i> Monthly Trend
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Expenses -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Recent Expenses
+                    </h5>
+                    <a href="{{ url_for('expenses.view_expenses') }}" class="btn btn-sm btn-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in recent_expenses %}
+                                <tr>
+                                    <td>{{ expense.date.strftime('%Y-%m-%d') }}</td>
+                                    <td><span class="badge bg-primary">{{ expense.category }}</span></td>
+                                    <td>{{ expense.description or '-' }}</td>
+                                    <td><strong>${{ "%.2f"|format(expense.amount) }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">No expenses yet. <a href="{{ url_for('expenses.add_expense') }}">Add one now</a></p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    border-top: 4px solid #007bff;
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card.border-left-primary {
+    border-top-color: #007bff;
+}
+
+.stat-card.border-left-success {
+    border-top-color: #28a745;
+}
+
+.stat-card.border-left-info {
+    border-top-color: #17a2b8;
+}
+
+.stat-card.border-left-warning {
+    border-top-color: #ffc107;
+}
+
+.stat-icon {
+    font-size: 2em;
+    opacity: 0.3;
+    color: #999;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/expenses/api/chart-data')
+        .then(response => response.json())
+        .then(data => {
+            // Category Chart
+            if (data.categories.length > 0) {
+                new Chart(document.getElementById('categoryChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.categories,
+                        datasets: [{
+                            data: data.category_amounts,
+                            backgroundColor: [
+                                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                                '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            }
+
+            // Trend Chart
+            if (data.months.length > 0) {
+                new Chart(document.getElementById('trendChart'), {
+                    type: 'line',
+                    data: {
+                        labels: data.months,
+                        datasets: [{
+                            label: 'Expenses',
+                            data: data.monthly_amounts,
+                            borderColor: '#007bff',
+                            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            }
+        });
+});
+</script>
+{% endblock %}
