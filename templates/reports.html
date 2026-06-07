@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Expense Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1 class="h3">
+                <i class="bi bi-bar-chart"></i> Reports
+            </h1>
+        </div>
+    </div>
+
+    <!-- Monthly Report -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📅 Monthly Report - {{ current_month|month_name }} {{ current_year }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h6 class="text-muted">Total</h6>
+                                <h3 class="text-primary">${{ "%.2f"|format(monthly_total) }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-9">
+                            <h6 class="mb-3">Category Breakdown</h6>
+                            {% if monthly_by_category %}
+                            <div class="row">
+                                {% for category, amount in monthly_by_category.items() %}
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <span>{{ category }}</span>
+                                            <strong>${{ "%.2f"|format(amount) }}</strong>
+                                        </div>
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar" style="width: {{ (amount / monthly_total * 100)|int }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No expenses this month.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yearly Report -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📊 Yearly Report - {{ current_year }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h6 class="text-muted">Total</h6>
+                                <h3 class="text-success">${{ "%.2f"|format(yearly_total) }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h6 class="text-muted">Average/Month</h6>
+                                <h3 class="text-info">${{ "%.2f"|format(yearly_total / 12) }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <canvas id="monthlyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <h6 class="mb-3">Category Breakdown</h6>
+                    {% if yearly_by_category %}
+                    <div class="row">
+                        {% for category, amount in yearly_by_category.items() %}
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>{{ category }}</span>
+                                    <strong>${{ "%.2f"|format(amount) }}</strong>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div class="progress-bar bg-success" style="width: {{ (amount / yearly_total * 100)|int }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No expenses this year.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-download"></i> Export Data
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="exportForm" class="row g-3 mb-3">
+                        <div class="col-md-3">
+                            <label for="export_date_from" class="form-label">From</label>
+                            <input type="date" class="form-control" id="export_date_from" name="date_from">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="export_date_to" class="form-label">To</label>
+                            <input type="date" class="form-control" id="export_date_to" name="date_to">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('reports.export_pdf') }}" class="btn btn-danger flex-fill" id="exportPdf">
+                                    <i class="bi bi-file-pdf"></i> Export PDF
+                                </a>
+                                <a href="{{ url_for('reports.export_excel') }}" class="btn btn-success flex-fill" id="exportExcel">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
+                                </a>
+                                <a href="{{ url_for('reports.export_csv') }}" class="btn btn-info flex-fill" id="exportCsv">
+                                    <i class="bi bi-file-csv"></i> Export CSV
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Monthly chart
+const monthlyData = {{ monthly_totals | tojson }};
+const months = Object.keys(monthlyData);
+const amounts = Object.values(monthlyData);
+
+new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+        labels: months,
+        datasets: [{
+            label: 'Monthly Expenses',
+            data: amounts,
+            backgroundColor: '#198754'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+
+// Export links with date parameters
+document.getElementById('exportPdf').addEventListener('click', function(e) {
+    const from = document.getElementById('export_date_from').value;
+    const to = document.getElementById('export_date_to').value;
+    let url = '{{ url_for("reports.export_pdf") }}';
+    if (from || to) {
+        url += '?';
+        if (from) url += 'date_from=' + from;
+        if (from && to) url += '&';
+        if (to) url += 'date_to=' + to;
+    }
+    this.href = url;
+});
+
+document.getElementById('exportExcel').addEventListener('click', function(e) {
+    const from = document.getElementById('export_date_from').value;
+    const to = document.getElementById('export_date_to').value;
+    let url = '{{ url_for("reports.export_excel") }}';
+    if (from || to) {
+        url += '?';
+        if (from) url += 'date_from=' + from;
+        if (from && to) url += '&';
+        if (to) url += 'date_to=' + to;
+    }
+    this.href = url;
+});
+
+document.getElementById('exportCsv').addEventListener('click', function(e) {
+    const from = document.getElementById('export_date_from').value;
+    const to = document.getElementById('export_date_to').value;
+    let url = '{{ url_for("reports.export_csv") }}';
+    if (from || to) {
+        url += '?';
+        if (from) url += 'date_from=' + from;
+        if (from && to) url += '&';
+        if (to) url += 'date_to=' + to;
+    }
+    this.href = url;
+});
+</script>
+
+<!-- Add month name filter -->
+{% macro month_name(m) %}
+    {%- if m == 1 %}January
+    {%- elif m == 2 %}February
+    {%- elif m == 3 %}March
+    {%- elif m == 4 %}April
+    {%- elif m == 5 %}May
+    {%- elif m == 6 %}June
+    {%- elif m == 7 %}July
+    {%- elif m == 8 %}August
+    {%- elif m == 9 %}September
+    {%- elif m == 10 %}October
+    {%- elif m == 11 %}November
+    {%- elif m == 12 %}December
+    {%- endif %}
+{%- endmacro %}
+{% endblock %}
